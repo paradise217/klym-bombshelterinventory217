@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bomb Shelter Inventory</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #191919;
+    color: #e8e8e8;
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .page-title { display: flex; align-items: center; gap: 12px; }
+  .page-icon { font-size: 28px; }
+  h1 { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+
+  .new-btn {
+    background: #2a2a2a;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-size: 13px;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .new-btn:hover { background: #333; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .search-bar { position: relative; flex: 1; }
+  .search-bar input {
+    width: 100%;
+    background: #2a2a2a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-size: 14px;
+    padding: 8px 12px 8px 34px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-bar input:focus { border-color: rgba(255,255,255,0.2); }
+  .search-bar input::placeholder { color: rgba(255,255,255,0.3); }
+  .search-icon {
+    position: absolute; left: 10px; top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,0.3); font-size: 14px; pointer-events: none;
+  }
+
+  select {
+    background: #2a2a2a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-size: 13px;
+    padding: 7px 10px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .status-bar {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 16px;
+    height: 16px;
+  }
+
+  .box-group { margin-bottom: 4px; }
+
+  .box-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px;
+  }
+  .box-header:hover { background: rgba(255,255,255,0.04); }
+
+  .chevron {
+    color: rgba(255,255,255,0.4);
+    font-size: 11px;
+    transition: transform 0.15s;
+    width: 12px; text-align: center; flex-shrink: 0;
+  }
+  .chevron.collapsed { transform: rotate(-90deg); }
+
+  .box-badge {
+    background: #1e4fad;
+    color: #a8c3ff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .box-count { color: rgba(255,255,255,0.3); font-size: 13px; }
+
+  .box-body { padding-left: 22px; }
+  .box-body.collapsed { display: none; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+
+  thead tr { border-bottom: 1px solid rgba(255,255,255,0.08); }
+
+  th {
+    text-align: left;
+    color: rgba(255,255,255,0.35);
+    font-weight: 500;
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+  th:nth-child(1) { width: 48%; }
+  th:nth-child(2) { width: 40%; }
+  th:nth-child(3) { width: 6%; }
+  th:nth-child(4) { width: 6%; }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: rgba(255,255,255,0.03); }
+  tbody tr:hover .del-btn, tbody tr:hover .edit-btn { opacity: 1; }
+  tbody tr.hidden { display: none; }
+
+  td { padding: 7px 8px; vertical-align: top; }
+
+  .item-name { display: flex; align-items: flex-start; gap: 8px; color: #e8e8e8; }
+  .item-icon { color: rgba(255,255,255,0.25); font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .item-note { color: rgba(255,255,255,0.4); font-size: 13px; }
+
+  .edit-btn {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0 4px;
+    transition: color 0.1s, opacity 0.1s;
+  }
+  .edit-btn:hover { color: rgba(255,255,255,0.7); }
+
+  .del-btn {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: rgba(255,80,80,0.6);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 0 4px;
+    transition: color 0.1s, opacity 0.1s;
+  }
+  .del-btn:hover { color: #ff5050; }
+
+  .no-results {
+    text-align: center;
+    color: rgba(255,255,255,0.25);
+    padding: 48px 0;
+    display: none;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: #252525;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 24px;
+    width: 420px;
+    max-width: 90vw;
+  }
+
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #fff; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%;
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-size: 14px;
+    padding: 8px 10px;
+    outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: rgba(255,255,255,0.25); }
+
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  .btn-cancel {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    padding: 7px 14px;
+    cursor: pointer;
+  }
+  .btn-cancel:hover { background: rgba(255,255,255,0.05); }
+
+  .btn-save {
+    background: #1e4fad;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 13px;
+    padding: 7px 16px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .btn-save:hover { background: #2860d0; }
+  .btn-save:disabled { opacity: 0.5; cursor: default; }
+
+  .loading {
+    text-align: center;
+    color: rgba(255,255,255,0.25);
+    padding: 60px 0;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-header">
+    <div class="page-title">
+      <span class="page-icon">🗄️</span>
+      <h1>Bomb Shelter Inventory</h1>
+    </div>
+    <button class="new-btn" onclick="openModal(null)">+ New item</button>
+  </div>
+
+  <div class="controls">
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search" placeholder="Search items…" autocomplete="off" />
+    </div>
+    <select id="filter-box">
+      <option value="">All boxes</option>
+    </select>
+  </div>
+
+  <div class="status-bar" id="status"></div>
+  <div id="inventory"><div class="loading">Loading…</div></div>
+  <div class="no-results" id="no-results">No items match your search.</div>
+
+</div>
+
+<!-- Add item modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Add item</h2>
+    <div class="field">
+      <label>Item name</label>
+      <input type="text" id="m-name" placeholder="e.g. Allen key set" />
+    </div>
+    <div class="field">
+      <label>Box</label>
+      <select id="m-box"></select>
+    </div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <input type="text" id="m-note" placeholder="e.g. Various sizes" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="m-save" onclick="saveItem()">Add item</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SURL = 'https://pirxfzwhjfedheeasenc.supabase.co';
+const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcnhmendoamZlZGhlZWFzZW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MTA2MjksImV4cCI6MjA5MjA4NjYyOX0.uSYJyC9v6xQD4IBNDtVcPkUe5RAE6D8v7vBEF467wFc';
+const sb = supabase.createClient(SURL, SKEY);
+
+const BOXES = [
+  "BOX 01 - Organisation items",
+  "BOX 02 - Warranties & instructions",
+  "BOX 03 - Filters pipes & screws",
+  "BOX 04 - Tool box",
+  "BOX 05 - Wires and misc",
+  "BOX 06 - Ziplocks and pump",
+  "BOX 07 - Cat stuff",
+  "BOX 08 - Important docs",
+  "BOX 09 - Plants and misc",
+  "BOX 10 - Terrarium and misc",
+];
+
+const SEED = [
+  { name: "3M hook (small)", box: "BOX 01 - Organisation items", note: "" },
+  { name: "3M hooks", box: "BOX 01 - Organisation items", note: "" },
+  { name: "3M velcro tape", box: "BOX 01 - Organisation items", note: "" },
+  { name: "AA track hooks", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Anti-slip bumper pad (1cm)", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Anti-slip mat", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Aqara motion lights (AA batt)", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Army green rope", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Batteries (AA)", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Black tape", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Blutack", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Cable ties", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Cat tree rope", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Clingwrap", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Double side tapes", box: "BOX 01 - Organisation items", note: "Thick/extra strong" },
+  { name: "Furniture feet and pads", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Furniture markers", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Gel superglue", box: "BOX 01 - Organisation items", note: "" },
+  { name: "L ruler", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Magnets", box: "BOX 01 - Organisation items", note: "10mm x 3mm" },
+  { name: "Markers (black/red)", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Masking tapes", box: "BOX 01 - Organisation items", note: "Small and medium" },
+  { name: "S Hooks", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Scotch tape", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Shoe glue", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Suction hooks", box: "BOX 01 - Organisation items", note: "For glossy surfaces only" },
+  { name: "Swiss army knife", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Universal travel adapter", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Velcro tapes", box: "BOX 01 - Organisation items", note: "" },
+  { name: "Ziplock bags", box: "BOX 01 - Organisation items", note: "Various sizes" },
+  { name: "Aqara D100 Door Lock", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Aqara Door & Window Sensor T1", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Aqara G4 Doorbell", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Aqara M3 Hub", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Aurastone Sintered Stone Top", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Bosch Dishwasher", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Bosch Fridge", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Bosch Oven", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Bose Soundlink Flex Portable Speaker 2", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Cabinet Internal Sticker", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Controllers", box: "BOX 02 - Warranties & instructions", note: "TV, AC" },
+  { name: "Cuisinart Ice cream maker", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Dreame X40", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Dyson Big & Quiet", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Dyson Vacuum", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Electrolux Dryer", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Electrolux Washer", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "EuropAce Dehumidifier + Purifier", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "EuropAce portable induction cooker", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Europace Dual Wings Bladeless Fan", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Farfalla wine cooler", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Fujioh Cooking Hob", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Fujioh Cooking Hood", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "G45 filament bulb (sonogo)", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "HDB Instructions", box: "BOX 02 - Warranties & instructions", note: "Water supply/fire alarm" },
+  { name: "Hydroflux Water Dispenser", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Ikea leftover", box: "BOX 02 - Warranties & instructions", note: "Alex, Eket" },
+  { name: "KDK Fan", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Klipsch The Fives Speakers", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Klipsch speakers cover", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: 'LG 86" TV', box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Mitsubihi Electric AC", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Panasonic Microwave", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Philips Garment Steamer Iron", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Philips Hand Blender", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Philips Sandwich Maker HD2250", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Rigel Toilet Bowls", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Sony PS5 controller Dualsense", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Staab Dutch Oven", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "TB Bomb Shelter Light/Fan", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "TB rotating shoe rack", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "TP-Link 5port POE Switch TL-SG1005LP", box: "BOX 02 - Warranties & instructions", note: "Up to 1Gbps" },
+  { name: "Xiaomi dust mite vacuum cleaner pro", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Zojirushi Ricecooker", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Zuhne Sensor Bin", box: "BOX 02 - Warranties & instructions", note: "" },
+  { name: "Dreame X40 spare parts and pipes", box: "BOX 03 - Filters pipes & screws", note: "" },
+  { name: "Dyson parts holder", box: "BOX 03 - Filters pipes & screws", note: "" },
+  { name: "Furniture leg endcaps", box: "BOX 03 - Filters pipes & screws", note: "6x10x30mm, 30mm" },
+  { name: "HDB fire alarm", box: "BOX 03 - Filters pipes & screws", note: "" },
+  { name: "MBR wardrobe digital lock", box: "BOX 03 - Filters pipes & screws", note: "" },
+  { name: "Random hooks and screws", box: "BOX 03 - Filters pipes & screws", note: "" },
+  { name: "Random spare water pipe", box: "BOX 03 - Filters pipes & screws", note: "" },
+  { name: "Spare MBR door handle", box: "BOX 03 - Filters pipes & screws", note: "" },
+  { name: "Spare mop head", box: "BOX 03 - Filters pipes & screws", note: "" },
+  { name: "Adjustable wench", box: "BOX 04 - Tool box", note: "" },
+  { name: "Level ruler", box: "BOX 04 - Tool box", note: "" },
+  { name: "Makita 18V drill", box: "BOX 04 - Tool box", note: "" },
+  { name: "Makita 43 pc screw bit set", box: "BOX 04 - Tool box", note: "" },
+  { name: "Makita battery", box: "BOX 04 - Tool box", note: "" },
+  { name: "Makita battery charger", box: "BOX 04 - Tool box", note: "" },
+  { name: "Makita drill bits", box: "BOX 04 - Tool box", note: "Wood, concrete, metal (5,6,8mm)" },
+  { name: "Pliers, Hot glue", box: "BOX 04 - Tool box", note: "" },
+  { name: "Protective gloves", box: "BOX 04 - Tool box", note: "" },
+  { name: "Razor blades refill (FD-13B)", box: "BOX 04 - Tool box", note: "" },
+  { name: "Screw + Wall plugs (8mm, 40mm)", box: "BOX 04 - Tool box", note: "" },
+  { name: "Screwdrivers", box: "BOX 04 - Tool box", note: "minus" },
+  { name: "Air quality detector", box: "BOX 05 - Wires and misc", note: "" },
+  { name: "Bosch fridge and dishwasher power wires", box: "BOX 05 - Wires and misc", note: "" },
+  { name: "Extension/Multi-plugs", box: "BOX 05 - Wires and misc", note: "3way 3pin multi-plug, 5way extension" },
+  { name: "GU10 bulb holder", box: "BOX 05 - Wires and misc", note: "" },
+  { name: "Klipsch power wires", box: "BOX 05 - Wires and misc", note: "" },
+  { name: "Legrand dark grey witches/Sockets", box: "BOX 05 - Wires and misc", note: "Single socket, 3 gang switch, 2 gang switch" },
+  { name: "LG TV stand", box: "BOX 05 - Wires and misc", note: "" },
+  { name: "Monitor arm", box: "BOX 05 - Wires and misc", note: "" },
+  { name: "Philips LED warm white light bulb", box: "BOX 05 - Wires and misc", note: "" },
+  { name: "Power meter plug", box: "BOX 05 - Wires and misc", note: "" },
+  { name: "Wires and cables", box: "BOX 05 - Wires and misc", note: "HDMI, LAN, Type C, B, etc" },
+  { name: "Brown wrapping paper", box: "BOX 06 - Ziplocks and pump", note: "" },
+  { name: "Bubble wrap", box: "BOX 06 - Ziplocks and pump", note: "" },
+  { name: "Card sleeves", box: "BOX 06 - Ziplocks and pump", note: "" },
+  { name: "Extra mahjong things", box: "BOX 06 - Ziplocks and pump", note: "" },
+  { name: "Formaldehyde sprays", box: "BOX 06 - Ziplocks and pump", note: "" },
+  { name: "Shower filter", box: "BOX 06 - Ziplocks and pump", note: "" },
+  { name: "Cat feeder & fountain filters", box: "BOX 07 - Cat stuff", note: "" },
+  { name: "Cones of shame", box: "BOX 07 - Cat stuff", note: "" },
+  { name: "Feliway plug", box: "BOX 07 - Cat stuff", note: "" },
+  { name: "Puzzle feeders", box: "BOX 07 - Cat stuff", note: "" },
+  { name: "Towels and old tshirts", box: "BOX 07 - Cat stuff", note: "" },
+  { name: "Toys", box: "BOX 07 - Cat stuff", note: "" },
+  { name: "ATLA comic", box: "BOX 08 - Important docs", note: "" },
+  { name: "Cat adoption papers", box: "BOX 08 - Important docs", note: "" },
+  { name: "Education certs", box: "BOX 08 - Important docs", note: "Poly and Sec sch" },
+  { name: "Insurance docs", box: "BOX 08 - Important docs", note: "Income" },
+  { name: "Medical reports", box: "BOX 08 - Important docs", note: "Colonoscopy (2023)" },
+  { name: "NS ORD cert", box: "BOX 08 - Important docs", note: "" },
+  { name: "Will", box: "BOX 08 - Important docs", note: "" },
+  { name: "YM education certs", box: "BOX 08 - Important docs", note: "" },
+  { name: "Cat grass seeds", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Leca", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Neem oil (spray bottle)", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Plant rack tools", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Planter base", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Shears", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Transparent plastic internal planter", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Trimming scissors", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Waterproofing paste", box: "BOX 09 - Plants and misc", note: "" },
+  { name: "Charcoal", box: "BOX 10 - Terrarium and misc", note: "" },
+  { name: "Cosmetic sand and pebbles", box: "BOX 10 - Terrarium and misc", note: "" },
+  { name: "Dry sphagnum moss", box: "BOX 10 - Terrarium and misc", note: "" },
+  { name: "Fibreglass mesh", box: "BOX 10 - Terrarium and misc", note: "" },
+  { name: "Keto soil", box: "BOX 10 - Terrarium and misc", note: "" },
+  { name: "Pumice", box: "BOX 10 - Terrarium and misc", note: "" },
+  { name: "Terrarium soil mix", box: "BOX 10 - Terrarium and misc", note: "" },
+];
+
+let allItems = [];
+let collapsedBoxes = new Set();
+
+function setStatus(msg) {
+  document.getElementById("status").textContent = msg;
+}
+
+async function loadItems() {
+  const { data, error } = await sb.from("inventory_items").select("*").order("box").order("name");
+  if (error) { console.error("Load error:", error); setStatus("Error: " + error.message); return; }
+
+  if ((data || []).length === 0) {
+    setStatus("Seeding initial data…");
+    const chunkSize = 25;
+    for (let i = 0; i < SEED.length; i += chunkSize) {
+      const { error: seedErr } = await sb.from("inventory_items").insert(SEED.slice(i, i + chunkSize));
+      if (seedErr) { console.error("Seed error:", seedErr); setStatus("Seed error: " + seedErr.message); return; }
+    }
+    const { data: seeded } = await sb.from("inventory_items").select("*").order("box").order("name");
+    allItems = seeded || [];
+  } else {
+    allItems = data;
+  }
+
+  populateBoxFilter();
+  render();
+  setStatus("");
+}
+
+function populateBoxFilter() {
+  const sel = document.getElementById("filter-box");
+  sel.innerHTML = '<option value="">All boxes</option>';
+  BOXES.forEach(b => {
+    const o = document.createElement("option");
+    o.value = b; o.textContent = b;
+    sel.appendChild(o);
+  });
+
+  const mSel = document.getElementById("m-box");
+  mSel.innerHTML = "";
+  BOXES.forEach(b => {
+    const o = document.createElement("option");
+    o.value = b; o.textContent = b;
+    mSel.appendChild(o);
+  });
+}
+
+function render() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const filterBox = document.getElementById("filter-box").value;
+  const container = document.getElementById("inventory");
+  const noResults = document.getElementById("no-results");
+  container.innerHTML = "";
+
+  const grouped = {};
+  BOXES.forEach(b => grouped[b] = []);
+
+  allItems.forEach(item => {
+    if (!grouped[item.box]) grouped[item.box] = [];
+    if (filterBox && item.box !== filterBox) return;
+    if (q && !item.name.toLowerCase().includes(q) && !(item.note||"").toLowerCase().includes(q)) return;
+    grouped[item.box].push(item);
+  });
+
+  let totalVisible = 0;
+
+  BOXES.forEach((box, gi) => {
+    const items = grouped[box] || [];
+    if (filterBox && box !== filterBox) return;
+    if (q && items.length === 0) return;
+    totalVisible += items.length;
+
+    const groupEl = document.createElement("div");
+    groupEl.className = "box-group";
+
+    const isCollapsed = collapsedBoxes.has(box);
+
+    const header = document.createElement("div");
+    header.className = "box-header";
+    header.innerHTML = `
+      <span class="chevron ${isCollapsed ? "collapsed" : ""}" id="chev-${gi}">▼</span>
+      <span class="box-badge">${esc(box)}</span>
+      <span class="box-count">${items.length}</span>
+    `;
+
+    const body = document.createElement("div");
+    body.className = "box-body" + (isCollapsed ? " collapsed" : "");
+    body.id = `body-${gi}`;
+
+    const table = document.createElement("table");
+    table.innerHTML = `<thead><tr><th>Item Name</th><th>Notes</th><th></th><th></th></tr></thead><tbody></tbody>`;
+    const tbody = table.querySelector("tbody");
+
+    items.forEach(item => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><span class="item-name"><span class="item-icon">📄</span>${esc(item.name)}</span></td>
+        <td><span class="item-note">${esc(item.note || "")}</span></td>
+        <td><button class="edit-btn" title="Edit item">✏️</button></td>
+        <td><button class="del-btn" title="Remove item">×</button></td>
+      `;
+      tr.querySelector(".edit-btn").addEventListener("click", () => openModal(item));
+      tr.querySelector(".del-btn").addEventListener("click", () => deleteItem(item.id, item.name));
+      tbody.appendChild(tr);
+    });
+
+    body.appendChild(table);
+    groupEl.appendChild(header);
+    groupEl.appendChild(body);
+    container.appendChild(groupEl);
+
+    header.addEventListener("click", () => {
+      if (collapsedBoxes.has(box)) collapsedBoxes.delete(box);
+      else collapsedBoxes.add(box);
+      render();
+    });
+  });
+
+  noResults.style.display = (totalVisible === 0 && q) ? "block" : "none";
+}
+
+async function deleteItem(id, name) {
+  if (!confirm(`Remove "${name}"?`)) return;
+  setStatus("Removing…");
+  const { error } = await sb.from("inventory_items").delete().eq("id", id);
+  if (error) { setStatus("Error removing item."); return; }
+  allItems = allItems.filter(i => i.id !== id);
+  render();
+  setStatus("");
+}
+
+let editingId = null;
+
+function openModal(item = null) {
+  editingId = item ? item.id : null;
+  document.getElementById("m-name").value = item ? item.name : "";
+  document.getElementById("m-note").value = item ? (item.note || "") : "";
+  if (item) document.getElementById("m-box").value = item.box;
+  document.querySelector(".modal h2").textContent = item ? "Edit item" : "Add item";
+  document.getElementById("m-save").textContent = item ? "Save changes" : "Add item";
+  document.getElementById("modal").classList.add("open");
+  document.getElementById("m-name").focus();
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+  editingId = null;
+}
+
+async function saveItem() {
+  const name = document.getElementById("m-name").value.trim();
+  const box = document.getElementById("m-box").value;
+  const note = document.getElementById("m-note").value.trim();
+  if (!name) { document.getElementById("m-name").focus(); return; }
+
+  const btn = document.getElementById("m-save");
+  btn.disabled = true;
+  btn.textContent = editingId ? "Saving…" : "Adding…";
+
+  if (editingId) {
+    const { data, error } = await sb.from("inventory_items").update({ name, box, note }).eq("id", editingId).select().single();
+    btn.disabled = false;
+    btn.textContent = "Save changes";
+    if (error) { alert("Error saving changes."); return; }
+    const idx = allItems.findIndex(i => i.id === editingId);
+    if (idx !== -1) allItems[idx] = data;
+  } else {
+    const { data, error } = await sb.from("inventory_items").insert({ name, box, note }).select().single();
+    btn.disabled = false;
+    btn.textContent = "Add item";
+    if (error) { alert("Error adding item."); return; }
+    allItems.push(data);
+  }
+
+  allItems.sort((a, b) => a.box.localeCompare(b.box) || a.name.localeCompare(b.name));
+  closeModal();
+  render();
+}
+
+function esc(str) {
+  return (str||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+document.getElementById("modal").addEventListener("click", e => {
+  if (e.target === document.getElementById("modal")) closeModal();
+});
+document.getElementById("m-name").addEventListener("keydown", e => {
+  if (e.key === "Enter") saveItem();
+  if (e.key === "Escape") closeModal();
+});
+
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("filter-box").addEventListener("change", render);
+
+loadItems();
+</script>
+</body>
+</html>
