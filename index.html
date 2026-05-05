@@ -472,7 +472,7 @@ const SEED = [
 ];
 
 let allItems = [];
-let collapsedBoxes = new Set();
+let collapsedBoxes = null; // null = not yet initialized; set after first load
 
 function setStatus(msg) {
   document.getElementById("status").textContent = msg;
@@ -495,6 +495,10 @@ async function loadItems() {
     allItems = data;
   }
 
+  if (collapsedBoxes === null) {
+    const boxes = [...new Set(allItems.map(i => i.box).filter(Boolean))];
+    collapsedBoxes = new Set(boxes);
+  }
   populateBoxFilter();
   render();
   setStatus("");
