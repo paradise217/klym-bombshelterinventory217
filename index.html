@@ -150,7 +150,6 @@
     transition: background 0.1s;
   }
   tbody tr:hover { background: rgba(255,255,255,0.03); }
-  tbody tr:hover .del-btn, tbody tr:hover .edit-btn { opacity: 1; }
   tbody tr.hidden { display: none; }
 
   td { padding: 7px 8px; vertical-align: top; }
@@ -160,26 +159,24 @@
   .item-note { color: rgba(255,255,255,0.4); font-size: 13px; }
 
   .edit-btn {
-    opacity: 0;
     background: none;
     border: none;
     color: rgba(255,255,255,0.3);
     cursor: pointer;
     font-size: 13px;
     padding: 0 4px;
-    transition: color 0.1s, opacity 0.1s;
+    transition: color 0.1s;
   }
   .edit-btn:hover { color: rgba(255,255,255,0.7); }
 
   .del-btn {
-    opacity: 0;
     background: none;
     border: none;
     color: rgba(255,80,80,0.6);
     cursor: pointer;
     font-size: 15px;
     padding: 0 4px;
-    transition: color 0.1s, opacity 0.1s;
+    transition: color 0.1s;
   }
   .del-btn:hover { color: #ff5050; }
 
